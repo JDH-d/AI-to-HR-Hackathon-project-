@@ -13,6 +13,8 @@ HR_CONTACT_URL=
 SIMILARITY_THRESHOLD=0.33
 TOP_K_SOURCES=4
 
+
+
 ## Быстрый запуск
 
 1. Создать и активировать виртуальное окружение.
