@@ -2,6 +2,17 @@
 
 MVP веб-приложения для HR Q&A на русском языке: один экран чата на `Streamlit`, ответы на основе внутренних документов компании через `OpenAI API + RAG`, показ источников, fallback при низкой уверенности и кнопка передачи вопроса HR.
 
+## Заполнение .env
+
+OPENAI_API_KEY=<YOUR_OPENAI_API_KEY>
+OPENAI_CHAT_MODEL=gpt-5-nano
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+HR_CONTACT_EMAIL=hr@example.com
+HR_CONTACT_LABEL=Команда HR
+HR_CONTACT_URL=
+SIMILARITY_THRESHOLD=0.33
+TOP_K_SOURCES=4
+
 ## Быстрый запуск
 
 1. Создать и активировать виртуальное окружение.
