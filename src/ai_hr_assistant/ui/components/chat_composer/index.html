@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI to HR Composer</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --composer-bg: rgba(36, 38, 43, 0.98);
+            --composer-bg-focus: rgba(40, 43, 49, 0.99);
+            --composer-border: rgba(255, 255, 255, 0.08);
+            --composer-border-focus: rgba(255, 255, 255, 0.14);
+            --composer-text: #f4f5f7;
+            --composer-placeholder: #8d949d;
+            --composer-button: #3a3f47;
+            --composer-button-hover: #474d57;
+            --composer-button-disabled: #2f3338;
+            --composer-shadow: 0 18px 42px rgba(0, 0, 0, 0.28);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            background: transparent;
+            font-family: "Segoe UI Variable Text", "Segoe UI", "Inter", sans-serif;
+            overflow: hidden;
+            border-radius: 1.5rem;
+        }
+
+        .composer {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            width: 100%;
+            min-height: 72px;
+            padding: 0.75rem;
+            border: 1px solid var(--composer-border);
+            border-radius: 1.5rem;
+            background: var(--composer-bg);
+            box-shadow: var(--composer-shadow);
+            overflow: hidden;
+            transition: border-color 120ms ease, background 120ms ease, transform 120ms ease;
+        }
+
+        .composer:focus-within {
+            border-color: var(--composer-border-focus);
+            background: var(--composer-bg-focus);
+        }
+
+        .composer-field {
+            flex: 1 1 auto;
+            min-width: 0;
+            display: flex;
+            align-items: center;
+        }
+
+        .composer-input {
+            display: block;
+            width: 100%;
+            min-height: 24px;
+            max-height: 180px;
+            margin: 0;
+            box-sizing: border-box;
+            resize: none;
+            border: none;
+            outline: none;
+            background: transparent;
+            color: var(--composer-text);
+            font-size: 16px;
+            line-height: 1.5;
+            padding: 0.45rem 0.25rem 0.45rem 0.35rem;
+            font-family: inherit;
+            overflow: hidden;
+        }
+
+        .composer-input::placeholder {
+            color: var(--composer-placeholder);
+        }
+
+        .composer-submit {
+            flex: 0 0 auto;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 42px;
+            height: 42px;
+            border: none;
+            border-radius: 999px;
+            background: var(--composer-button);
+            color: var(--composer-text);
+            font-size: 20px;
+            line-height: 1;
+            transition: background 120ms ease, opacity 120ms ease, transform 120ms ease;
+        }
+
+        .composer-submit:hover:not(:disabled) {
+            background: var(--composer-button-hover);
+            transform: translateY(-1px);
+        }
+
+        .composer-submit:disabled {
+            background: var(--composer-button-disabled);
+            opacity: 0.58;
+            cursor: default;
+        }
+    </style>
+</head>
+<body>
+    <form class="composer" id="composer-form">
+        <div class="composer-field">
+            <textarea
+                id="composer-input"
+                class="composer-input"
+                maxlength="2000"
+                autocomplete="off"
+                spellcheck="false"
+                rows="1"
+                placeholder=""
+            ></textarea>
+        </div>
+        <button id="composer-submit" class="composer-submit" type="submit" aria-label="Отправить">
+            ↑
+        </button>
+    </form>
+
+    <script>
+        const COMPONENT_READY = "streamlit:componentReady";
+        const SET_COMPONENT_VALUE = "streamlit:setComponentValue";
+        const SET_FRAME_HEIGHT = "streamlit:setFrameHeight";
+        const RENDER_EVENT = "streamlit:render";
+
+        const form = document.getElementById("composer-form");
+        const input = document.getElementById("composer-input");
+        const submit = document.getElementById("composer-submit");
+
+        let currentResetNonce = 0;
+        let hasRendered = false;
+        let readyHeartbeatId = null;
+        let resizeObserver = null;
+
+        function sendToStreamlit(type, payload = {}) {
+            window.parent.postMessage(
+                {
+                    isStreamlitMessage: true,
+                    type,
+                    ...payload,
+                },
+                "*"
+            );
+        }
+
+        function setFrameHeight() {
+            const height = document.documentElement.scrollHeight;
+            sendToStreamlit(SET_FRAME_HEIGHT, { height });
+        }
+
+        function autoResize() {
+            input.style.height = "auto";
+            input.style.height = `${Math.min(input.scrollHeight, 180)}px`;
+            setFrameHeight();
+        }
+
+        function stopReadyHeartbeat() {
+            if (readyHeartbeatId !== null) {
+                window.clearInterval(readyHeartbeatId);
+                readyHeartbeatId = null;
+            }
+        }
+
+        function sendComponentReady() {
+            sendToStreamlit(COMPONENT_READY, { apiVersion: 1 });
+        }
+
+        function startReadyHeartbeat() {
+            sendComponentReady();
+
+            if (readyHeartbeatId !== null) {
+                return;
+            }
+
+            readyHeartbeatId = window.setInterval(() => {
+                if (hasRendered) {
+                    stopReadyHeartbeat();
+                    return;
+                }
+
+                sendComponentReady();
+            }, 250);
+        }
+
+        function setComposerState(args = {}, disabled = false) {
+            input.placeholder = args.placeholder || "";
+            submit.textContent = args.submit_label || "↑";
+            submit.setAttribute("aria-label", args.submit_aria_label || "Отправить");
+
+            if (typeof args.reset_nonce === "number" && args.reset_nonce !== currentResetNonce) {
+                currentResetNonce = args.reset_nonce;
+                input.value = "";
+            }
+
+            input.disabled = Boolean(disabled || args.disabled);
+            submit.disabled = input.disabled || input.value.trim().length === 0;
+            autoResize();
+        }
+
+        function emitSubmit() {
+            const text = input.value.trim();
+            if (!text || input.disabled) {
+                submit.disabled = true;
+                return;
+            }
+
+            const submitToken = window.crypto && window.crypto.randomUUID
+                ? window.crypto.randomUUID()
+                : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+            input.value = "";
+            submit.disabled = true;
+            autoResize();
+
+            sendToStreamlit(SET_COMPONENT_VALUE, {
+                value: {
+                    text,
+                    submit_token: submitToken,
+                },
+            });
+        }
+
+        form.addEventListener("submit", (event) => {
+            event.preventDefault();
+            emitSubmit();
+        });
+
+        input.addEventListener("input", () => {
+            submit.disabled = input.disabled || input.value.trim().length === 0;
+            autoResize();
+        });
+
+        input.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                emitSubmit();
+            }
+        });
+
+        window.addEventListener("message", (event) => {
+            const message = event.data;
+            if (!message || message.type !== RENDER_EVENT) {
+                return;
+            }
+
+            hasRendered = true;
+            stopReadyHeartbeat();
+            setComposerState(message.args, message.disabled);
+        });
+
+        resizeObserver = new ResizeObserver(() => {
+            if (hasRendered) {
+                setFrameHeight();
+            }
+        });
+        resizeObserver.observe(document.body);
+
+        startReadyHeartbeat();
+    </script>
+</body>
+</html>
