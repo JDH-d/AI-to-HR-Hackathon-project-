@@ -5,7 +5,9 @@ MVP веб-приложения для HR Q&A на русском языке: о
 ## Заполнение .env
 
 OPENAI_API_KEY=<YOUR_OPENAI_API_KEY>
+
 OPENAI_CHAT_MODEL=gpt-5-nano
+
 OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 HR_CONTACT_EMAIL=hr@example.com
 HR_CONTACT_LABEL=Команда HR
